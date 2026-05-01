@@ -11,20 +11,22 @@ export const getTimeline = async (
     const country = req.params.country as string;
     logger.info(`Generating AI timeline for: ${country}`);
 
-    const prompt = `Generate a chronological timeline of the 4 most important upcoming or very recent election milestones for ${country}. 
-    Return the response as a JSON array of objects with the following keys:
-    - id: string (unique number)
-    - date: string (e.g., "Oct 2026" or "Nov 5, 2026")
-    - title: string (short, crisp event title)
-    - description: string (one clear sentence about what happens)
-    - status: "completed" | "current" | "upcoming"
-    
-    Return ONLY the raw JSON array. No extra text or markdown code blocks.`;
+    const prompt = `Generate a master-level election intelligence report and timeline for ${country}. 
+    Return a JSON object with:
+    1. "events": Array of 5 major election milestones with id, date, title, description, and status ("completed", "current", or "upcoming").
+    2. "stats": An object with:
+       - daysUntilPolling: string (e.g. "124 Days")
+       - projectedTurnout: string (e.g. "67.4%")
+       - activeVoters: string (e.g. "968M")
+       - healthScore: number (1-100)
+       - cycleInsight: string (A brief analytical insight)
+
+    Return ONLY raw JSON.`;
 
     const response = await mistralClient.chat.complete({
       model: MISTRAL_MODEL,
       messages: [
-        { role: 'system', content: 'You are a professional election data provider. You always return valid JSON array.' },
+        { role: 'system', content: 'You are an election analyst. Return valid JSON only.' },
         { role: 'user', content: prompt }
       ],
       responseFormat: { type: 'json_object' }
@@ -36,19 +38,11 @@ export const getTimeline = async (
       throw new Error('Failed to generate AI timeline');
     }
 
-    let timelineData;
-    try {
-      const parsed = JSON.parse(typeof content === 'string' ? content : JSON.stringify(content));
-      // Handle the case where Mistral wraps the array in an object
-      timelineData = Array.isArray(parsed) ? parsed : (parsed.timeline || parsed.events || Object.values(parsed)[0]);
-    } catch (e) {
-      logger.error('Failed to parse AI timeline JSON');
-      throw new Error('Invalid data format from AI');
-    }
+    const reportData = JSON.parse(typeof content === 'string' ? content : JSON.stringify(content));
 
     res.status(200).json({
       success: true,
-      data: timelineData,
+      data: reportData,
     });
   } catch (error) {
     next(error);
